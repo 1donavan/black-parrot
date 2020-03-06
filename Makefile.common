@@ -13,7 +13,7 @@ export BASEJUMP_STL_DIR ?= $(TOP)/../basejump_stl
 
 # If the machine you are working on is bsg_cadenv compliant, then you do not
 # need to setup the cad tools, simply put bsg_cadenv in the same root dir.
-export BSG_CADENV_DIR ?= $(TOP)/external/bsg_cadenv
+export BSG_CADENV_DIR ?= $(TOP)/../ee477-cad/common/mk
 -include $(BSG_CADENV_DIR)/cadenv.mk
 
 ## Sepcify license path if needed
@@ -27,7 +27,7 @@ export URG       ?= urg
 export VERILATOR ?= verilator
 export DC_SHELL  ?= dc_shell
 # Some environments have issues with setting DVE as an environment variable
-export _DVE      ?= dve
+export DVE       ?= dve
 export GTKWAVE   ?= gtkwave
 export PYTHON    ?= python3
 
