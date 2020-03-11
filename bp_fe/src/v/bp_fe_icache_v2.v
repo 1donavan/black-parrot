@@ -15,7 +15,7 @@
  */
 
  `define LCE_ASSOC_NEW 4
- `define LCE_SETS_NEW 128
+ `define LCE_SETS_NEW 64
 
 
 module bp_fe_icache_v2
@@ -28,7 +28,7 @@ module bp_fe_icache_v2
     `declare_bp_cache_service_if_widths(paddr_width_p, ptag_width_p, `LCE_SETS_NEW, `LCE_ASSOC_NEW, dword_width_p, cce_block_width_p)
         
     , localparam way_id_width_lp=`BSG_SAFE_CLOG2(`LCE_ASSOC_NEW)
-    , localparam block_size_in_words_lp=`LCE_ASSOC_NEW          
+    , localparam block_size_in_words_lp=8         
     , localparam data_mask_width_lp=(dword_width_p>>3)       
     , localparam byte_offset_width_lp=`BSG_SAFE_CLOG2(dword_width_p>>3) 
     , localparam word_offset_width_lp=`BSG_SAFE_CLOG2(block_size_in_words_lp)      
@@ -356,9 +356,27 @@ module bp_fe_icache_v2
 
   // Fault if in uncached mode but access is not for an uncached address
   assign data_v_o = v_tv_r & ((uncached_tv_r & uncached_load_data_v_r)
-                              | (~uncached_tv_r & ~miss_tv)
-                              );
-  assign miss_o = miss_tv | cache_miss;
+                              | (~uncached_tv_r & ~miss_tv));
+
+ /* logic write_wait;
+  logic [`BSG_SAFE_CLOG2(8 -`LCE_ASSOC_NEW) - 1 : 0] assoc_write_count; 
+  always_ff @(posedge clk_i) begin
+	if(reset_i) begin
+      assoc_write_count <= 0;
+	  write_wait <= 0;
+	end if(cache_req_complete_i) begin
+	  assoc_write_count <= `LCE_ASSOC_NEW;
+	  write_wait <= 1;
+	end else if (assoc_write_count > 0) begin
+	  assoc_write_count <= assoc_write_count - 1;
+	  write_wait <= 1;
+	end else begin
+	  assoc_write_count <= 0;
+	  write_wait <= 0;
+	end
+  end*/
+      
+  assign miss_o = miss_tv | cache_miss; // | write_wait;
 
   logic [dword_width_p-1:0]   ld_data_way_picked;
 

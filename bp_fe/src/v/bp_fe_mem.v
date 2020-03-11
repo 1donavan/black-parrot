@@ -1,7 +1,7 @@
  `define LCE_ASSOC_NEW 8
  `define LCE_SETS_NEW 64
-
-module bp_fe_mem
+ 
+ module bp_fe_mem
  import bp_common_pkg::*;
  import bp_common_aviary_pkg::*;
  import bp_fe_pkg::*;
