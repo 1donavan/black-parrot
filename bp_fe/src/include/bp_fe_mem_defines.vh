@@ -14,7 +14,7 @@ typedef enum bit [1:0]
   {                                                            \
     logic [vtag_width_mp-1:0]                         tag;     \
     logic [`BSG_SAFE_CLOG2(lce_sets_mp)-1:0]          index;   \
-    logic [`BSG_SAFE_CLOG2(cce_block_width_mp/8)-1:0] offset;  \
+    logic [(12 - `BSG_SAFE_CLOG2(lce_sets_mp))-1:0]   offset;  \
   }  bp_fe_vaddr_s;                                            \
                                                                \
   typedef struct packed                                        \
@@ -112,4 +112,3 @@ typedef enum bit [1:0]
   (4+instr_width_p)
 
 `endif
-
