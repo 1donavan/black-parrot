@@ -128,7 +128,7 @@ module bp_softcore
   wire [1:0][lce_id_width_p-1:0] lce_id_li = {cfg_bus_li.dcache_id, cfg_bus_li.icache_id};
   for (genvar i = 0; i < 2; i++)
     begin : uce
-	  if (i == 1) begin
+	  //if (i == 1) begin
       bp_uce
        #(.bp_params_p(bp_params_p))
        uce
@@ -171,7 +171,7 @@ module bp_softcore
          ,.mem_resp_v_i(mem_resp_v_li[i])
          ,.mem_resp_yumi_o(mem_resp_yumi_lo[i])
          );
-	  end else if (i == 0) begin
+	  /*end else if (i == 0) begin
 	   bp_uce_icache
        #(.bp_params_p(bp_params_p))
        uce
@@ -214,7 +214,7 @@ module bp_softcore
          ,.mem_resp_v_i(mem_resp_v_li[i])
          ,.mem_resp_yumi_o(mem_resp_yumi_lo[i])
          );
-	  end
+	  end*/
     end
 
   bp_clint_slice_buffered
