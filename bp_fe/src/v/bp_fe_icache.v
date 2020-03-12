@@ -19,25 +19,28 @@ module bp_fe_icache
   import bp_common_pkg::*;
   import bp_common_aviary_pkg::*;
   import bp_fe_pkg::*;
-  import bp_fe_icache_pkg::*;  
+  import bp_fe_icache_pkg::*;
   #(parameter bp_params_e bp_params_p = e_bp_inv_cfg
     `declare_bp_proc_params(bp_params_p)
     `declare_bp_cache_service_if_widths(paddr_width_p, ptag_width_p, icache_lce_sets_p, icache_lce_assoc_p, dword_width_p, cce_block_width_p)
-        
+
     , localparam way_id_width_lp=`BSG_SAFE_CLOG2(icache_lce_assoc_p)
-    , localparam block_size_in_words_lp=icache_lce_assoc_p          
-    , localparam data_mask_width_lp=(dword_width_p>>3)       
-    , localparam byte_offset_width_lp=`BSG_SAFE_CLOG2(dword_width_p>>3) 
-    , localparam word_offset_width_lp=`BSG_SAFE_CLOG2(block_size_in_words_lp)      
-    , localparam index_width_lp=`BSG_SAFE_CLOG2(icache_lce_sets_p)                        
-    , localparam block_offset_width_lp=(word_offset_width_lp+byte_offset_width_lp) 
-    , localparam tag_width_lp=(paddr_width_p-block_offset_width_lp-index_width_lp) 
-    
-    `declare_bp_icache_widths(vaddr_width_p, tag_width_lp, icache_lce_assoc_p) 
+    , localparam block_size_in_words_lp=icache_lce_assoc_p
+    , localparam data_mask_width_lp=(dword_width_p>>3)
+    , localparam byte_offset_width_lp=`BSG_SAFE_CLOG2(dword_width_p>>3)
+    , localparam word_offset_width_lp=`BSG_SAFE_CLOG2(block_size_in_words_lp)
+    , localparam index_width_lp=`BSG_SAFE_CLOG2(icache_lce_sets_p)
+    , localparam block_offset_width_lp=(word_offset_width_lp+byte_offset_width_lp)
+    , localparam tag_width_lp=(paddr_width_p-block_offset_width_lp-index_width_lp)
+
+    `declare_bp_icache_widths(vaddr_width_p, tag_width_lp, icache_lce_assoc_p)
 
     , localparam bp_be_dcache_stat_width_lp = `bp_be_dcache_stat_info_width(icache_lce_assoc_p)
     , localparam cfg_bus_width_lp = `bp_cfg_bus_width(vaddr_width_p, core_id_width_p, cce_id_width_p, lce_id_width_p, cce_pc_width_p, cce_instr_width_p)
     , parameter debug_p=0
+    , localparam counter_target_lp = 8/icache_lce_assoc_p - 1
+    , localparam counter_width_lp = `BSG_SAFE_CLOG2(counter_target_lp)
+    , localparam buffer_size_lp = 8
     )
    (input                                              clk_i
     , input                                            reset_i
@@ -52,13 +55,13 @@ module bp_fe_icache
     , input                                            ptag_v_i
     , input                                            uncached_i
     , input                                            poison_i
-    
+
     , output [instr_width_p-1:0]                       data_o
     , output                                           data_v_o
     , output                                           miss_o
 
     // LCE Interface
-    
+
     , output [cache_req_width_lp-1:0]                  cache_req_o
     , output logic                                     cache_req_v_o
     , input                                            cache_req_ready_i
@@ -95,7 +98,7 @@ module bp_fe_icache
   bp_cache_req_metadata_s cache_req_metadata_cast_lo;
   assign cache_req_o = cache_req_cast_lo;
   assign cache_req_metadata_o = cache_req_metadata_cast_lo;
-  
+
   logic [index_width_lp-1:0]            vaddr_index;
 
   logic [word_offset_width_lp-1:0] vaddr_offset;
@@ -108,7 +111,32 @@ module bp_fe_icache
 
   assign vaddr_index      = vaddr_i[word_offset_width_lp+byte_offset_width_lp+:index_width_lp];
   assign vaddr_offset     = vaddr_i[byte_offset_width_lp+:word_offset_width_lp];
-   
+
+  logic [buffer_size_lp-1:0][dword_width_p-1:0] data_mem_write_data;
+  logic [7:0][dword_width_p-1:0] receiving_buffer_r;
+
+  logic load_instr_finished, load_counter_en;
+  logic [counter_width_lp-1:0] load_cycle_count;
+  assign load_counter_en = data_mem_pkt_v_i || (|load_cycle_count);
+
+  logic [buffer_size_lp-1:0][dword_width_p-1:0] data_mem_buffer_r;
+  bsg_counter_overflow_en #(
+    .max_val_p(counter_target_lp)
+   ,.init_val_p(0)
+  ) load_counter
+    (.clk_i(clk_i)
+    ,.reset_i(reset_i)
+    ,.en_i(load_counter_en)
+    ,.count_o(load_cycle_count)
+    ,.overflow_o(load_instr_finished)
+    );
+
+  for (genvar i = 0; i < buffer_size_lp; i++) begin
+    always_ff @ (posedge clk_i) begin
+      data_mem_buffer_r[i] <= data_mem_write_data[i];
+      end
+  end
+
   // TL stage
   logic v_tl_r;
   logic tl_we;
@@ -183,14 +211,14 @@ module bp_fe_icache
       ,.w_i(data_mem_w_li)
       ,.data_o(data_mem_data_lo[bank])
     );
-  end                                             
+  end
 
   // TV stage
   logic v_tv_r;
   logic tv_we;
   logic uncached_tv_r;
   logic [paddr_width_p-1:0]                     addr_tv_r;
-  logic [vaddr_width_p-1:0]                     vaddr_tv_r; 
+  logic [vaddr_width_p-1:0]                     vaddr_tv_r;
   logic [icache_lce_assoc_p-1:0][tag_width_lp-1:0]     tag_tv_r;
   logic [icache_lce_assoc_p-1:0][`bp_coh_bits-1:0]     state_tv_r;
   logic [icache_lce_assoc_p-1:0][dword_width_p-1:0]    ld_data_tv_r;
@@ -250,7 +278,7 @@ module bp_fe_icache
   logic uncached_req;
   assign uncached_req = v_tv_r & uncached_tv_r & ~uncached_load_data_v_r;
 
- 
+
   // stat memory
   logic                                       stat_mem_v_li;
   logic                                       stat_mem_w_li;
@@ -290,7 +318,7 @@ module bp_fe_icache
     ,.v_o(invalid_exist)
     ,.addr_o(way_invalid_index)
  );
-  
+
   // LCE
   bp_cache_data_mem_pkt_s data_mem_pkt;
   assign data_mem_pkt = data_mem_pkt_i;
@@ -314,7 +342,7 @@ module bp_fe_icache
         cache_req_cast_lo.addr = addr_tv_r;
         cache_req_cast_lo.msg_type = e_uc_load;
         cache_req_cast_lo.size = e_size_4B;
-        cache_req_v_o = 1'b1;   
+        cache_req_v_o = 1'b1;
       end
     end
   end
@@ -343,13 +371,14 @@ module bp_fe_icache
      cache_miss_tracker
      (.clk_i(clk_i)
      ,.reset_i(reset_i)
-     ,.en_i(cache_req_v_o | cache_req_complete_i)
+     ,.en_i(cache_req_v_o | load_instr_finished)  // cache_req_v_o enable the dff when start requesting a cache,
+                                                  // cache_req_complete_i enable the dff when finish the cache rea (replace this to the counter finishe signal)
      ,.data_i(cache_req_v_o)
      ,.data_o(miss_tracker_r)
      );
 
   assign cache_miss = cache_req_v_o || miss_tracker_r;
-  assign vaddr_ready_o = cache_req_ready_i & ~cache_miss;
+  assign vaddr_ready_o = cache_req_ready_i & ~cache_miss; // & load_instr_finished;
 
   // Fault if in uncached mode but access is not for an uncached address
   assign data_v_o = v_tv_r & ((uncached_tv_r & uncached_load_data_v_r)
@@ -396,9 +425,10 @@ module bp_fe_icache
     : {icache_lce_assoc_p{data_mem_v}};
 
   assign data_mem_w_li = data_mem_pkt_v_i
-    & (data_mem_pkt.opcode == e_cache_data_mem_write);   
+    & (data_mem_pkt.opcode == e_cache_data_mem_write);
 
-  logic [icache_lce_assoc_p-1:0][dword_width_p-1:0] data_mem_write_data;
+  // logic [icache_lce_assoc_p-1:0][dword_width_p-1:0] data_mem_write_data;
+
 
   for (genvar i = 0; i < icache_lce_assoc_p; i++) begin
     assign data_mem_addr_li[i] = tl_we
@@ -417,7 +447,7 @@ module bp_fe_icache
     ,.sel_i(data_mem_pkt.way_id)
     ,.data_o(data_mem_write_data)
   );
-   
+
   // tag_mem
   assign tag_mem_v_li = tl_we | tag_mem_pkt_v_i;
   assign tag_mem_w_li = ~tl_we & tag_mem_pkt_v_i;
@@ -466,7 +496,7 @@ module bp_fe_icache
     ? ~miss_tv
     : stat_mem_pkt_v_i & (stat_mem_pkt.opcode != e_cache_stat_mem_read);
   assign stat_mem_addr_li = (v_tv_r & ~uncached_tv_r)
-    ? addr_index_tv 
+    ? addr_index_tv
     : stat_mem_pkt.index;
 
   logic [icache_lce_assoc_p-2:0] lru_decode_data_lo;
@@ -489,7 +519,7 @@ module bp_fe_icache
       stat_mem_mask_li = {(icache_lce_assoc_p-1){1'b1}};
     end
   end
-   
+
   // LCE: data mem
   logic [way_id_width_lp-1:0] data_mem_pkt_way_r;
 
@@ -532,9 +562,9 @@ module bp_fe_icache
   end
 
   // LCE: tag_mem
-  
+
   logic [way_id_width_lp-1:0] tag_mem_pkt_way_r;
-  
+
   always_ff @ (posedge clk_i) begin
     if (tag_mem_pkt_v_i & (tag_mem_pkt.opcode == e_cache_tag_mem_read)) begin
       tag_mem_pkt_way_r <= tag_mem_pkt.way_id;
@@ -563,5 +593,5 @@ module bp_fe_icache
     );
   end
   // synopsys translate_on
-   
+
 endmodule

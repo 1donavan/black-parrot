@@ -2,38 +2,38 @@
  *
  * Name:
  *   bp_fe_lce_cmd.v
- * 
+ *
  * Description:
  *   To be updated
  *
  * Notes:
- * 
+ *
  */
 
 
 module bp_fe_lce_cmd
   import bp_common_pkg::*;
   import bp_fe_icache_pkg::*;
-  import bp_fe_pkg::*; 
+  import bp_fe_pkg::*;
   import bp_common_aviary_pkg::*;
   #(parameter bp_params_e bp_params_p = e_bp_inv_cfg
    `declare_bp_proc_params(bp_params_p)
-   `declare_bp_lce_cce_if_widths(cce_id_width_p, lce_id_width_p, paddr_width_p, lce_assoc_p, dword_width_p, cce_block_width_p)
-   `declare_bp_cache_service_if_widths(paddr_width_p, ptag_width_p, lce_sets_p, lce_assoc_p, dword_width_p, cce_block_width_p)
-   
-   , localparam way_id_width_lp=`BSG_SAFE_CLOG2(lce_assoc_p)
-   , localparam block_size_in_words_lp=lce_assoc_p
+   `declare_bp_lce_cce_if_widths(cce_id_width_p, lce_id_width_p, paddr_width_p, icache_lce_assoc_p, dword_width_p, cce_block_width_p)
+   `declare_bp_cache_service_if_widths(paddr_width_p, ptag_width_p, icache_lce_sets_p, icache_lce_assoc_p, dword_width_p, cce_block_width_p)
+
+   , localparam way_id_width_lp=`BSG_SAFE_CLOG2(icache_lce_assoc_p)
+   , localparam block_size_in_words_lp=icache_lce_assoc_p
    , localparam data_mask_width_lp=(dword_width_p>>3)
    , localparam byte_offset_width_lp=`BSG_SAFE_CLOG2(dword_width_p>>3)
    , localparam word_offset_width_lp=`BSG_SAFE_CLOG2(block_size_in_words_lp)
-   , localparam index_width_lp=`BSG_SAFE_CLOG2(lce_sets_p)
+   , localparam index_width_lp=`BSG_SAFE_CLOG2(icache_lce_sets_p)
    , localparam block_offset_width_lp=(word_offset_width_lp+byte_offset_width_lp)
    , localparam tag_width_lp=(paddr_width_p-block_offset_width_lp-index_width_lp)
-   
-   , localparam bp_be_dcache_stat_width_lp = `bp_be_dcache_stat_info_width(lce_assoc_p)
+
+   , localparam bp_be_dcache_stat_width_lp = `bp_be_dcache_stat_info_width(icache_lce_assoc_p)
 
     // width for counter used during initiliazation and for sync messages
-    , localparam cnt_width_lp = `BSG_MAX(cce_id_width_p+1, `BSG_SAFE_CLOG2(lce_sets_p)+1)
+    , localparam cnt_width_lp = `BSG_MAX(cce_id_width_p+1, `BSG_SAFE_CLOG2(icache_lce_sets_p)+1)
     , localparam cnt_max_val_lp = ((2**cnt_width_lp)-1)
   )
   (
@@ -50,7 +50,7 @@ module bp_fe_lce_cmd
     , output logic                                               uncached_data_received_o
 
     , output logic                                               cache_req_complete_o
-   
+
     , output logic [cache_data_mem_pkt_width_lp-1:0]             data_mem_pkt_o
     , output logic                                               data_mem_pkt_v_o
     , input                                                      data_mem_pkt_ready_i
@@ -73,14 +73,14 @@ module bp_fe_lce_cmd
     , input [lce_cmd_width_lp-1:0]                               lce_cmd_i
     , input                                                      lce_cmd_v_i
     , output logic                                               lce_cmd_yumi_o
-    
+
     , output logic [lce_cmd_width_lp-1:0]                        lce_cmd_o
     , output logic                                               lce_cmd_v_o
-    , input                                                      lce_cmd_ready_i 
+    , input                                                      lce_cmd_ready_i
   );
 
   // lce interface
-  `declare_bp_lce_cce_if(cce_id_width_p, lce_id_width_p, paddr_width_p, lce_assoc_p, dword_width_p, cce_block_width_p);
+  `declare_bp_lce_cce_if(cce_id_width_p, lce_id_width_p, paddr_width_p, icache_lce_assoc_p, dword_width_p, cce_block_width_p);
 
   bp_lce_cmd_s lce_cmd_li;
   bp_lce_cce_resp_s lce_resp;
@@ -89,36 +89,36 @@ module bp_fe_lce_cmd
   assign lce_cmd_li    = lce_cmd_i;
   assign lce_resp_o    = lce_resp;
   assign lce_cmd_o     = lce_cmd_out;
- 
+
   logic [index_width_lp-1:0] lce_cmd_addr_index;
   logic [tag_width_lp-1:0] lce_cmd_addr_tag;
   assign lce_cmd_addr_index = lce_cmd_li.msg.cmd.addr[block_offset_width_lp+:index_width_lp];
   assign lce_cmd_addr_tag = lce_cmd_li.msg.cmd.addr[block_offset_width_lp+index_width_lp+:tag_width_lp];
- 
+
   // lce pkt
   //
-  `declare_bp_cache_data_mem_pkt_s(lce_sets_p, lce_assoc_p, cce_block_width_p);
-  `declare_bp_cache_tag_mem_pkt_s(lce_sets_p, lce_assoc_p, tag_width_lp);
-  `declare_bp_cache_stat_mem_pkt_s(lce_sets_p, lce_assoc_p);
-  
-  `declare_bp_fe_icache_stat_s(lce_assoc_p);
+  `declare_bp_cache_data_mem_pkt_s(icache_lce_sets_p, icache_lce_assoc_p, cce_block_width_p);
+  `declare_bp_cache_tag_mem_pkt_s(icache_lce_sets_p, icache_lce_assoc_p, tag_width_lp);
+  `declare_bp_cache_stat_mem_pkt_s(icache_lce_sets_p, icache_lce_assoc_p);
+
+  `declare_bp_fe_icache_stat_s(icache_lce_assoc_p);
 
   bp_cache_data_mem_pkt_s data_mem_pkt;
   bp_cache_tag_mem_pkt_s tag_mem_pkt;
   bp_cache_stat_mem_pkt_s stat_mem_pkt;
-  
+
   bp_fe_icache_stat_s stat_mem_cast_i;
-  
+
   assign data_mem_pkt_o = data_mem_pkt;
   assign tag_mem_pkt_o  = tag_mem_pkt;
   assign stat_mem_pkt_o = stat_mem_pkt;
-  
+
   assign stat_mem_cast_i = stat_mem_i;
 
   logic [cce_block_width_p-1:0] data_r, data_n;
   logic flag_data_buffered_r, flag_data_buffered_n;
   logic flag_invalidate_r, flag_invalidate_n;
-  
+
   logic data_mem_pkt_v, tag_mem_pkt_v, stat_mem_pkt_v;
   assign data_mem_pkt_v_o = data_mem_pkt_v;
   assign tag_mem_pkt_v_o = tag_mem_pkt_v;
@@ -147,7 +147,7 @@ module bp_fe_lce_cmd
       ,.up_i(cnt_inc)
       ,.count_o(cnt_r)
       );
- 
+
   // lce_cmd fsm
   always_comb begin
     cnt_inc = 1'b0;
@@ -200,7 +200,7 @@ module bp_fe_lce_cmd
           stat_mem_pkt_v         = 1'b1;
         end
 
-        state_n = ((cnt_r == cnt_width_lp'(lce_sets_p-1)) & tag_mem_pkt_v & stat_mem_pkt_v)
+        state_n = ((cnt_r == cnt_width_lp'(icache_lce_sets_p-1)) & tag_mem_pkt_v & stat_mem_pkt_v)
           ? e_lce_cmd_uncached_only
           : e_lce_cmd_reset;
         cnt_clear = (state_n == e_lce_cmd_uncached_only);
@@ -236,15 +236,15 @@ module bp_fe_lce_cmd
           state_n = ((cnt_r == cnt_width_lp'(num_cce_p-1)) & lce_resp_yumi_i)
             ? e_lce_cmd_ready
             : e_lce_cmd_uncached_only;
-          
+
           // clear counter when moving to ready state
           cnt_clear = (state_n == e_lce_cmd_ready);
           // only increment counter when staying in uncached_only state and waiting for more
           // sync messages, and when the lce_resp is sent
           cnt_inc = ~cnt_clear & lce_resp_yumi_i;
           cache_req_complete_o = 1'b0;
-         
-        end 
+
+        end
         else if (lce_cmd_li.msg_type == e_lce_cmd_uc_data) begin
           if(data_mem_pkt_ready_i) begin
             data_mem_pkt.index = miss_addr_i[block_offset_width_lp+:index_width_lp];
@@ -331,7 +331,7 @@ module bp_fe_lce_cmd
           flag_invalidate_n = lce_resp_yumi_i
             ? 1'b0
             : (flag_invalidate_r
-                ? 1'b1  
+                ? 1'b1
                 : tag_mem_pkt_v);
 
           lce_resp.dst_id = lce_cmd_li.msg.cmd.src_id;
@@ -349,7 +349,7 @@ module bp_fe_lce_cmd
             data_mem_pkt.opcode = e_cache_data_mem_write;
             data_mem_pkt_v = lce_cmd_v_i;
           end
-          
+
           if(tag_mem_pkt_ready_i) begin
             tag_mem_pkt.index  = miss_addr_i[block_offset_width_lp+:index_width_lp];
             tag_mem_pkt.way_id = lce_cmd_li.way_id;
@@ -393,7 +393,7 @@ module bp_fe_lce_cmd
             stat_mem_pkt.opcode      = e_cache_stat_mem_set_clear;
             stat_mem_pkt_v         = lce_cmd_v_i;
           end
-          
+
           lce_cmd_yumi_o           = tag_mem_pkt_v & stat_mem_pkt_v;
           cache_req_complete_o = 1'b0;
 
@@ -402,10 +402,10 @@ module bp_fe_lce_cmd
       end
 
       e_lce_cmd_send_transfer: begin
-        
+
         flag_data_buffered_n = ~lce_cmd_ready_i;
         data_n               = flag_data_buffered_r ? data_r : data_mem_i;
-        
+
         lce_cmd_out.msg.dt_cmd.data = flag_data_buffered_r ? data_r : data_mem_i;
         lce_cmd_out.msg.dt_cmd.addr = lce_cmd_li.msg.cmd.addr;
         lce_cmd_out.msg.dt_cmd.state = lce_cmd_li.msg.cmd.state;
@@ -423,8 +423,8 @@ module bp_fe_lce_cmd
 
       end
     endcase
-  end 
-  
+  end
+
   always_ff @ (posedge clk_i) begin
     if (reset_i) begin
       state_r              <= e_lce_cmd_reset;

@@ -21,7 +21,7 @@ module bp_fe_pc_gen
    )
   (input                                             clk_i
    , input                                           reset_i
- 
+
    , output [mem_cmd_width_lp-1:0]                   mem_cmd_o
    , output                                          mem_cmd_v_o
    , input                                           mem_cmd_yumi_i
@@ -44,7 +44,7 @@ module bp_fe_pc_gen
 
 `declare_bp_fe_be_if(vaddr_width_p, paddr_width_p, asid_width_p, branch_metadata_fwd_width_p);
 `declare_bp_fe_branch_metadata_fwd_s(btb_tag_width_p, btb_idx_width_p, bht_idx_width_p,ras_idx_width_p);
-`declare_bp_fe_mem_structs(vaddr_width_p, lce_sets_p, cce_block_width_p, vtag_width_p, ptag_width_p)
+`declare_bp_fe_mem_structs(vaddr_width_p, icache_lce_sets_p, cce_block_width_p, vtag_width_p, ptag_width_p)
 `declare_bp_fe_pc_gen_stage_s(vaddr_width_p);
 
 bp_fe_mem_cmd_s mem_cmd_cast_o;
@@ -76,7 +76,7 @@ wire [vaddr_width_p-1:0] pc_if2 = pc_gen_stage_r[1].pc;
 
 // Flags for valid FE commands
 wire fetch_v          = mem_cmd_yumi_i & (mem_cmd_cast_o.op == e_fe_op_fetch);
-wire state_reset_v    = fe_cmd_v_i & (fe_cmd_cast_i.opcode == e_op_state_reset); 
+wire state_reset_v    = fe_cmd_v_i & (fe_cmd_cast_i.opcode == e_op_state_reset);
 wire pc_redirect_v    = fe_cmd_v_i & (fe_cmd_cast_i.opcode == e_op_pc_redirection);
 wire itlb_fill_v      = fe_cmd_v_i & (fe_cmd_cast_i.opcode == e_op_itlb_fill_response);
 wire icache_fence_v   = fe_cmd_v_i & (fe_cmd_cast_i.opcode == e_op_icache_fence);
@@ -102,7 +102,7 @@ bsg_dff_reset_en
    ,.data_i(shadow_priv_n)
    ,.data_o(shadow_priv_r)
    );
-   
+
 logic shadow_translation_en_n, shadow_translation_en_r;
 wire shadow_translation_en_w = state_reset_v | trap_v | itlb_fence_v;
 assign shadow_translation_en_n = fe_cmd_cast_i.operands.pc_redirect_operands.translation_enabled;
@@ -163,15 +163,15 @@ always_comb
     // Stall until we can start valid fetch
     e_stall: state_n = pc_gen_stage_n[0].v ? e_run : e_stall;
     // Run state -- PCs are actually being fetched
-    // Stay in run if there's an incoming cmd, the next pc will automatically be valid 
+    // Stay in run if there's an incoming cmd, the next pc will automatically be valid
     // Transition to wait if there's a TLB miss while we wait for fill
     // Transition to stall if we don't successfully complete the fetch for whatever reason
-    e_run  : state_n = cmd_nonattaboy_v 
-                       ? e_run 
-                       : fetch_fail 
-                         ? e_stall 
-                         : fe_exception_v 
-                           ? e_wait 
+    e_run  : state_n = cmd_nonattaboy_v
+                       ? e_run
+                       : fetch_fail
+                         ? e_stall
+                         : fe_exception_v
+                           ? e_wait
                            : e_run;
     default: state_n = e_wait;
   endcase
@@ -181,7 +181,7 @@ always_ff @(posedge clk_i)
   if (reset_i)
       state_r <= e_wait;
   else
-    begin 
+    begin
       state_r <= state_n;
     end
 
@@ -198,7 +198,7 @@ always_comb
     // if we need to redirect
     else if (pc_redirect_v | icache_fence_v | itlb_fence_v)
         pc_gen_stage_n[0].pc = fe_cmd_cast_i.vaddr;
-    else if (state_r != e_run) 
+    else if (state_r != e_run)
         pc_gen_stage_n[0].pc = pc_resume_r;
     else if (ovr_taken)
         pc_gen_stage_n[0].pc = br_target;
@@ -232,7 +232,7 @@ wire [btb_tag_width_p-1:0] btb_tag_if2 = pc_if2[2+btb_idx_width_p+:btb_tag_width
 wire [btb_idx_width_p-1:0] btb_idx_if2 = pc_if2[2+:btb_idx_width_p];
 wire [bht_idx_width_p-1:0] bht_idx_if2 = pc_if2[2+:bht_idx_width_p];
 
-assign fe_queue_cast_o_branch_metadata = 
+assign fe_queue_cast_o_branch_metadata =
   '{pred_taken: pred_taken_if2
     ,btb_tag  : btb_tag_if2
     ,btb_idx  : btb_idx_if2
@@ -244,7 +244,7 @@ bsg_dff_reset_en
  #(.width_p(branch_metadata_fwd_width_p))
  branch_metadata_fwd_reg
   (.clk_i(clk_i)
-   ,.reset_i(reset_i) 
+   ,.reset_i(reset_i)
    ,.en_i(fe_queue_v_o)
 
    ,.data_i(fe_queue_cast_o_branch_metadata)
@@ -268,7 +268,7 @@ bp_fe_btb
    ,.br_tgt_o(btb_br_tgt_lo)
    ,.br_tgt_v_o(btb_br_tgt_v_lo)
 
-   ,.w_tag_i(fe_cmd_branch_metadata.btb_tag) 
+   ,.w_tag_i(fe_cmd_branch_metadata.btb_tag)
    ,.w_idx_i(fe_cmd_branch_metadata.btb_idx)
    // Literature says that we should only update btb on taken branches, but I'd like to see
    // benchmarks...
@@ -294,7 +294,7 @@ bp_fe_bht
 
 `declare_bp_fe_instr_scan_s(vaddr_width_p)
 bp_fe_instr_scan_s scan_instr;
-bp_fe_instr_scan 
+bp_fe_instr_scan
  #(.bp_params_p(bp_params_p))
  instr_scan
   (.instr_i(mem_resp_cast_i.data)
@@ -312,7 +312,7 @@ assign br_target  = pc_gen_stage_r[1].pc + scan_instr.imm;
 // We wait until both the FE queue and I$ are ready, but flushes invalidate the fetch.
 // The next PC is valid during a FE cmd, since it is a non-speculative
 //   command and we must accept it immediately.
-// This may cause us to fetch during an I$ miss or a with a full queue.  
+// This may cause us to fetch during an I$ miss or a with a full queue.
 // FE cmds normally flush the queue, so we don't expect this to affect
 //   power much in practice.
 assign mem_cmd_v_o = cmd_nonattaboy_v || (~is_wait & fe_queue_ready_i & ~flush);
@@ -344,7 +344,7 @@ assign mem_translation_en_o = shadow_translation_en_w ? shadow_translation_en_n 
 
 // Handshaking signals
 assign fe_cmd_yumi_o      = fe_cmd_v_i; // Always accept FE commands
-                                        // All FE cmds are processed in 1 cycle, for now                                      
+                                        // All FE cmds are processed in 1 cycle, for now
 
 // Organize the FE queue message
 assign fe_queue_v_o = fe_queue_ready_i & (fe_instr_v | fe_exception_v);
@@ -365,7 +365,7 @@ always_comb
                                                            ? e_instr_page_fault
                                                            : e_instr_access_fault;
       end
-    else 
+    else
       begin
         fe_queue_cast_o.msg_type                      = e_fe_fetch;
         fe_queue_cast_o.msg.fetch.pc                  = pc_if2;
@@ -375,4 +375,3 @@ always_comb
   end
 
 endmodule
-
