@@ -7,10 +7,10 @@ module bp_uce_icache
   import bp_me_pkg::*;
   #(parameter bp_params_e bp_params_p = e_bp_inv_cfg
     `declare_bp_proc_params(bp_params_p)
-    `declare_bp_cache_service_if_widths(paddr_width_p, ptag_width_p, icache_lce_sets_p, icache_lce_assoc_p, dword_width_p, cce_block_width_p)
-    `declare_bp_me_if_widths(paddr_width_p, cce_block_width_p, lce_id_width_p, icache_lce_assoc_p)
+    `declare_bp_cache_service_if_widths(paddr_width_p, ptag_width_p, lce_sets_p, lce_assoc_p, dword_width_p, cce_block_width_p)
+    `declare_bp_me_if_widths(paddr_width_p, cce_block_width_p, lce_id_width_p, lce_assoc_p)
 
-    , localparam stat_info_width_lp = `bp_be_dcache_stat_info_width(icache_lce_assoc_p)
+    , localparam stat_info_width_lp = `bp_be_dcache_stat_info_width(lce_assoc_p)
     )
    (input                                            clk_i
     , input                                          reset_i
@@ -51,7 +51,7 @@ module bp_uce_icache
     , output logic                                   mem_resp_yumi_o
     );
 
-  `declare_bp_me_if(paddr_width_p, cce_block_width_p, lce_id_width_p, icache_lce_assoc_p);
+  `declare_bp_me_if(paddr_width_p, cce_block_width_p, lce_id_width_p, lce_assoc_p);
   `declare_bp_cache_service_if(paddr_width_p, ptag_width_p, icache_lce_sets_p, icache_lce_assoc_p, dword_width_p, cce_block_width_p);
 
   `bp_cast_i(bp_cache_req_s, cache_req);
@@ -81,7 +81,7 @@ module bp_uce_icache
      ,.data_i(cache_req_cast_i)
      ,.data_o(cache_req_r)
      );
- 
+
   bp_cache_req_metadata_s cache_req_metadata_r;
   bsg_dff_en_bypass
    #(.width_p($bits(bp_cache_req_metadata_s)))
@@ -174,7 +174,7 @@ module bp_uce_icache
   assign credits_full_o = 1'b0;
   assign credits_empty_o = 1'b1;
 
-  // We ack mem_resps for uncached stores no matter what, so mem_resp_yumi_lo is for other responses 
+  // We ack mem_resps for uncached stores no matter what, so mem_resp_yumi_lo is for other responses
   logic mem_resp_yumi_lo;
   assign mem_resp_yumi_o = mem_resp_yumi_lo | uc_store_resp_v_li;
   always_comb
@@ -299,7 +299,7 @@ module bp_uce_icache
             data_mem_pkt_v_o = mem_resp_v_i & data_mem_pkt_ready_i & tag_mem_pkt_ready_i;
 
             cache_req_complete_o = tag_mem_pkt_v_o & data_mem_pkt_v_o;
-            mem_resp_yumi_lo = cache_req_complete_o; 
+            mem_resp_yumi_lo = cache_req_complete_o;
 
             state_n = cache_req_complete_o ? e_ready : e_read_wait;
           end
@@ -334,4 +334,3 @@ module bp_uce_icache
 ////synopsys translate_off
 
 endmodule
-

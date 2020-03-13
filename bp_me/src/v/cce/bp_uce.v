@@ -81,7 +81,7 @@ module bp_uce
      ,.data_i(cache_req_cast_i)
      ,.data_o(cache_req_r)
      );
- 
+
   bp_cache_req_metadata_s cache_req_metadata_r;
   bsg_dff_en_bypass
    #(.width_p($bits(bp_cache_req_metadata_s)))
@@ -174,7 +174,7 @@ module bp_uce
   assign credits_full_o = 1'b0;
   assign credits_empty_o = 1'b1;
 
-  // We ack mem_resps for uncached stores no matter what, so mem_resp_yumi_lo is for other responses 
+  // We ack mem_resps for uncached stores no matter what, so mem_resp_yumi_lo is for other responses
   logic mem_resp_yumi_lo;
   assign mem_resp_yumi_o = mem_resp_yumi_lo | uc_store_resp_v_li;
   always_comb
@@ -299,7 +299,7 @@ module bp_uce
             data_mem_pkt_v_o = mem_resp_v_i & data_mem_pkt_ready_i & tag_mem_pkt_ready_i;
 
             cache_req_complete_o = tag_mem_pkt_v_o & data_mem_pkt_v_o;
-            mem_resp_yumi_lo = cache_req_complete_o; 
+            mem_resp_yumi_lo = cache_req_complete_o;
 
             state_n = cache_req_complete_o ? e_ready : e_read_wait;
           end
@@ -334,4 +334,3 @@ module bp_uce
 ////synopsys translate_off
 
 endmodule
-

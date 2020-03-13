@@ -128,7 +128,7 @@ module bp_softcore
   wire [1:0][lce_id_width_p-1:0] lce_id_li = {cfg_bus_li.dcache_id, cfg_bus_li.icache_id};
   for (genvar i = 0; i < 2; i++)
     begin : uce
-	  //if (i == 1) begin
+	  if (i == 1) begin
       bp_uce
        #(.bp_params_p(bp_params_p))
        uce
@@ -171,7 +171,8 @@ module bp_softcore
          ,.mem_resp_v_i(mem_resp_v_li[i])
          ,.mem_resp_yumi_o(mem_resp_yumi_lo[i])
          );
-	  /*end else if (i == 0) begin
+	  end
+    else if (i == 0) begin
 	   bp_uce_icache
        #(.bp_params_p(bp_params_p))
        uce
@@ -214,7 +215,7 @@ module bp_softcore
          ,.mem_resp_v_i(mem_resp_v_li[i])
          ,.mem_resp_yumi_o(mem_resp_yumi_lo[i])
          );
-	  end*/
+	  end
     end
 
   bp_clint_slice_buffered
@@ -288,7 +289,7 @@ module bp_softcore
   assign mem_resp_li[0]   = clint_resp_v_lo & (clint_resp_lo.payload.lce_id == 1'b0)
                             ? clint_resp_lo
                             : io_resp_v_i & (io_resp_cast_i.payload.lce_id == 1'b0)
-                              ? io_resp_i 
+                              ? io_resp_i
                               : mem_resp_i;
   assign mem_resp_li[1]   = clint_resp_v_lo & (clint_resp_lo.payload.lce_id == 1'b1)
                             ? clint_resp_lo
@@ -309,4 +310,3 @@ module bp_softcore
                             | ((io_resp_v_i & (io_resp_cast_i.payload.lce_id == 1'b1)) & mem_resp_yumi_lo[1]);
 
 endmodule
-
