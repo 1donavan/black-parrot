@@ -177,10 +177,37 @@ module bp_fe_icache
   logic [icache_lce_assoc_p-1:0][`bp_coh_bits+tag_width_lp-1:0] tag_mem_w_mask_li_mux;
 
   assign tag_mem_addr_updated = tag_mem_addr_li_buffer_r + load_cycle_count;
-  assign tag_mem_addr_li_mux = (tag_mem_pkt_v_i | tl_we)? tag_mem_addr_li : tag_mem_addr_updated;
-  assign tag_mem_data_li_mux = (tag_mem_pkt_v_i | tl_we)? tag_mem_data_li : tag_mem_data_buffer_r;
-  assign tag_mem_w_mask_li_mux = (tag_mem_pkt_v_i | tl_we)? tag_mem_w_mask_li : tag_mem_w_mask_buffer_r;
-
+  always_comb begin
+    if (counter_target_lp==0) begin // no additional cycle is required
+      tag_mem_addr_li_mux = tag_mem_addr_li;
+      tag_mem_data_li_mux = tag_mem_data_li;
+      tag_mem_w_mask_li_mux = tag_mem_w_mask_li;
+      end
+    else if (tag_mem_pkt_v_i | tl_we) begin
+      tag_mem_addr_li_mux = tag_mem_addr_li;
+      tag_mem_data_li_mux = tag_mem_data_li;
+      tag_mem_w_mask_li_mux = tag_mem_w_mask_li;
+      end
+    else begin
+      tag_mem_addr_li_mux = tag_mem_addr_updated;
+      tag_mem_data_li_mux = tag_mem_data_buffer_r;
+      tag_mem_w_mask_li_mux = tag_mem_w_mask_buffer_r;
+      end
+  end
+  // assign tag_mem_addr_li_mux = (tag_mem_pkt_v_i | tl_we)? tag_mem_addr_li : tag_mem_addr_updated;
+  // assign tag_mem_data_li_mux = (tag_mem_pkt_v_i | tl_we)? tag_mem_data_li : tag_mem_data_buffer_r;
+  // assign tag_mem_w_mask_li_mux = (tag_mem_pkt_v_i | tl_we)? tag_mem_w_mask_li : tag_mem_w_mask_buffer_r;
+  logic tag_mem_v, tag_mem_w;
+  always_comb begin
+    if (counter_target_lp==0) begin
+      tag_mem_v = tag_mem_v_li;
+      tag_mem_w = tag_mem_w_li;
+      end
+    else begin
+      tag_mem_v = tag_mem_v_li | load_counter_en;
+      tag_mem_w = tag_mem_w_li | load_counter_en;
+      end
+  end
   bsg_mem_1rw_sync_mask_write_bit #(
     .width_p(icache_lce_assoc_p*(`bp_coh_bits+tag_width_lp))
     ,.els_p(icache_lce_sets_p)
@@ -189,9 +216,9 @@ module bp_fe_icache
     ,.reset_i(reset_i)
     ,.data_i(tag_mem_data_li_mux)
     ,.addr_i(tag_mem_addr_li_mux)
-    ,.v_i(~reset_i & (tag_mem_v_li | load_counter_en))
+    ,.v_i(~reset_i & tag_mem_v)
     ,.w_mask_i(tag_mem_w_mask_li_mux)
-    ,.w_i(tag_mem_w_li | load_counter_en)
+    ,.w_i(tag_mem_w)
     ,.data_o(tag_mem_data_lo)
   );
 
@@ -216,18 +243,38 @@ module bp_fe_icache
   //data memory: buffer
   for (genvar i = 0; i < lce_assoc_p; i++) begin
     always_ff @ (posedge clk_i) begin
-      data_mem_data_buffer_r[i] <= data_mem_write_data[i];
-      if (data_mem_pkt.index[0])
-        data_mem_addr_buffer_r[i] <= {{data_mem_pkt.index[1+:index_width_lp-1], 1'b0} ^ ((index_width_lp)'(i/icache_lce_assoc_p)), data_mem_pkt.way_id ^ ((word_offset_width_lp)'(i))};
-      else
-        data_mem_addr_buffer_r[i] <= {data_mem_pkt.index ^ ((index_width_lp)'(i/icache_lce_assoc_p)), data_mem_pkt.way_id ^ ((word_offset_width_lp)'(i))};
+      if (data_mem_pkt_v_i) begin
+        data_mem_data_buffer_r[i] <= data_mem_write_data[i];
+        if (data_mem_pkt.index[0])
+          data_mem_addr_buffer_r[i] <= {{data_mem_pkt.index[1+:index_width_lp-1], 1'b0} ^ ((index_width_lp)'(i/icache_lce_assoc_p)), data_mem_pkt.way_id ^ ((word_offset_width_lp)'(i))};
+        else
+          data_mem_addr_buffer_r[i] <= {data_mem_pkt.index ^ ((index_width_lp)'(i/icache_lce_assoc_p)), data_mem_pkt.way_id ^ ((word_offset_width_lp)'(i))};
+        end
       end
   end
 
   logic [icache_lce_assoc_p-1:0][dword_width_p-1:0]                        data_mem_data_li_mux;
   logic [icache_lce_assoc_p-1:0][index_width_lp+word_offset_width_lp-1:0]  data_mem_addr_li_mux;
-  assign data_mem_data_li_mux = (data_mem_pkt_v_i | tl_we)? data_mem_data_li : data_mem_data_buffer_r[icache_lce_assoc_p+:icache_lce_assoc_p];
-  assign data_mem_addr_li_mux = (data_mem_pkt_v_i | tl_we)? data_mem_addr_li : data_mem_addr_buffer_r[icache_lce_assoc_p+:icache_lce_assoc_p];
+  logic data_mem_data_li_mux_sel, data_mem_addr_li_mux_sel;
+  logic [2:0] slicing_offset;
+
+  always_comb begin
+    slicing_offset = (load_cycle_count-1) << 1;   //TODO 1 try to make it simpler
+    if (counter_target_lp==0) begin // no additional cycle is required
+      data_mem_data_li_mux = data_mem_data_li;
+      data_mem_addr_li_mux = data_mem_addr_li;
+      end
+    else if (data_mem_pkt_v_i | tl_we) begin
+      data_mem_data_li_mux = data_mem_data_li;
+      data_mem_addr_li_mux = data_mem_addr_li;
+      end
+    else begin
+      data_mem_data_li_mux = data_mem_data_buffer_r[(icache_lce_assoc_p + slicing_offset)+:icache_lce_assoc_p]; //TODO 1 try to make it simpler
+      data_mem_addr_li_mux = data_mem_addr_buffer_r[(icache_lce_assoc_p + slicing_offset)+:icache_lce_assoc_p];
+      end
+  end
+  // assign data_mem_data_li_mux = (data_mem_pkt_v_i | tl_we)? data_mem_data_li : data_mem_data_buffer_r[icache_lce_assoc_p+:icache_lce_assoc_p];
+  // assign data_mem_addr_li_mux = (data_mem_pkt_v_i | tl_we)? data_mem_addr_li : data_mem_addr_buffer_r[icache_lce_assoc_p+:icache_lce_assoc_p];
 
   // data memory: banks
   for (genvar bank = 0; bank < icache_lce_assoc_p; bank++)
@@ -397,7 +444,14 @@ module bp_fe_icache
   assign cache_req_metadata_cast_lo.dirty = '0;
 
   // Cache Miss Tracker
-  logic cache_miss, miss_tracker_r;
+  logic cache_miss, miss_tracker_r, miss_tracker_en;
+  always_comb begin
+    if (counter_target_lp == 0)
+      miss_tracker_en = cache_req_v_o | cache_req_complete_i;
+    else
+      miss_tracker_en = cache_req_v_o | load_instr_finished;  // cache_req_v_o enable the dff when start requesting a cache,
+                                                              // cache_req_complete_i enable the dff when finish the cache rea (replace this to the counter finishe signal)
+    end
 
   bsg_dff_reset_en
     #(.width_p(1)
@@ -405,8 +459,7 @@ module bp_fe_icache
      cache_miss_tracker
      (.clk_i(clk_i)
      ,.reset_i(reset_i)
-     ,.en_i(cache_req_v_o | load_instr_finished)  // cache_req_v_o enable the dff when start requesting a cache,
-                                                  // cache_req_complete_i enable the dff when finish the cache rea (replace this to the counter finishe signal)
+     ,.en_i(miss_tracker_en)
      ,.data_i(cache_req_v_o)
      ,.data_o(miss_tracker_r)
      );
@@ -451,17 +504,28 @@ module bp_fe_icache
   // data mem
 
   logic data_mem_v;
-  assign data_mem_v = (data_mem_pkt.opcode != e_cache_data_mem_uncached)
-    & load_counter_en; //data_mem_pkt_v_
+
 
   assign data_mem_v_li = tl_we
     ? {icache_lce_assoc_p{1'b1}}
     : {icache_lce_assoc_p{data_mem_v}};
 
-  assign data_mem_w_li = load_counter_en //data_mem_pkt_v_i
-    & (data_mem_pkt.opcode == e_cache_data_mem_write);
 
 
+    always_comb begin
+      if (counter_target_lp==0) begin
+        data_mem_v = (data_mem_pkt.opcode != e_cache_data_mem_uncached) & data_mem_pkt_v_i;
+        data_mem_w_li = data_mem_pkt_v_i & (data_mem_pkt.opcode == e_cache_data_mem_write);
+        end
+      else begin
+        data_mem_v = (data_mem_pkt.opcode != e_cache_data_mem_uncached) & load_counter_en;
+        data_mem_w_li = load_counter_en & (data_mem_pkt.opcode == e_cache_data_mem_write);
+        end
+    end
+    // assign data_mem_w_li = load_counter_en //data_mem_pkt_v_i
+    //   & (data_mem_pkt.opcode == e_cache_data_mem_write);
+    // assign data_mem_v = (data_mem_pkt.opcode != e_cache_data_mem_uncached)
+    //   & load_counter_en; //data_mem_pkt_v_
 
   for (genvar i = 0; i < icache_lce_assoc_p; i++) begin
     // assign data_mem_addr_li[i] = tl_we
@@ -472,7 +536,7 @@ module bp_fe_icache
     always_comb begin
       if (tl_we)
         data_mem_addr_li[i] = {vaddr_index, vaddr_offset};
-      else if (data_mem_pkt.index[0])
+      else if (data_mem_pkt.index[0] && (counter_target_lp !=0) )
         data_mem_addr_li[i] = {{data_mem_pkt.index[1+:index_width_lp-1], 1'b0} ^ ((index_width_lp)'(i/icache_lce_assoc_p)), data_mem_pkt.way_id ^ ((word_offset_width_lp)'(i))};
       else
         data_mem_addr_li[i] = {data_mem_pkt.index ^ ((index_width_lp)'(i/icache_lce_assoc_p)), data_mem_pkt.way_id ^ ((word_offset_width_lp)'(i))};
@@ -497,7 +561,7 @@ module bp_fe_icache
     tag_mem_w_li = ~tl_we & tag_mem_pkt_v_i; //tag_mem_pkt_v_i
     if (tl_we)
       tag_mem_addr_li = vaddr_index;
-    else if (tag_mem_pkt.index[0] && (tag_mem_pkt.opcode == e_cache_tag_mem_set_tag))
+    else if (tag_mem_pkt.index[0] && (tag_mem_pkt.opcode == e_cache_tag_mem_set_tag) && (counter_target_lp !=0))
       tag_mem_addr_li = {tag_mem_pkt.index[1+:index_width_lp-1], 1'b0};
     else
       tag_mem_addr_li = tag_mem_pkt.index;
@@ -542,9 +606,11 @@ module bp_fe_icache
   // tag_mem_data_buffer
   for (genvar i = 0; i < icache_lce_assoc_p; i++) begin
     always_ff @(posedge clk_i) begin
-      if (tag_mem_pkt.opcode == e_cache_tag_mem_set_tag)
-      tag_mem_data_buffer_r[i]   <= {tag_mem_pkt.state, tag_mem_pkt.tag};
-      tag_mem_w_mask_buffer_r[i] <= {(`bp_coh_bits+tag_width_lp){tag_mem_way_one_hot[i]}};
+      if (tag_mem_pkt_v_i) begin
+        if (tag_mem_pkt.opcode == e_cache_tag_mem_set_tag)
+          tag_mem_data_buffer_r[i]   <= {tag_mem_pkt.state, tag_mem_pkt.tag};
+          tag_mem_w_mask_buffer_r[i] <= {(`bp_coh_bits+tag_width_lp){tag_mem_way_one_hot[i]}};
+        end
       end
   end
 

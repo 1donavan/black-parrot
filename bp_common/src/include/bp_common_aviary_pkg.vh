@@ -6,7 +6,7 @@ package bp_common_aviary_pkg;
   localparam max_cfgs    = 128;
   localparam lg_max_cfgs = `BSG_SAFE_CLOG2(max_cfgs);
 
-  localparam bp_proc_param_s bp_inv_cfg_p = 
+  localparam bp_proc_param_s bp_inv_cfg_p =
     '{default: 1};
 
   // NOTE: To use this config, need to manually override CCE=1 and LCE=1 at instantiation
@@ -63,7 +63,7 @@ package bp_common_aviary_pkg;
       ,io_noc_len_width     : 4
       };
 
-  localparam bp_proc_param_s bp_single_core_cfg_p = 
+  localparam bp_proc_param_s bp_single_core_cfg_p =
     '{cc_x_dim   : 1
       ,cc_y_dim  : 1
       ,ic_y_dim  : 1
@@ -73,18 +73,18 @@ package bp_common_aviary_pkg;
       ,vaddr_width: 39
       ,paddr_width: 40
       ,asid_width : 1
-      
+
       ,branch_metadata_fwd_width: 28
       ,btb_tag_width            : 10
       ,btb_idx_width            : 6
       ,bht_idx_width            : 9
       ,ras_idx_width            : 2
-      
+
       ,itlb_els             : 8
       ,dtlb_els             : 8
-      
-      ,icache_lce_sets      : 128
-      ,icache_lce_assoc     : 4
+
+      ,icache_lce_sets      : 256
+      ,icache_lce_assoc     : 2
       ,lce_sets             : 64
       ,lce_assoc            : 8
       ,cce_block_width      : 512
@@ -117,7 +117,7 @@ package bp_common_aviary_pkg;
       };
 
 
-  localparam bp_proc_param_s bp_dual_core_cfg_p = 
+  localparam bp_proc_param_s bp_dual_core_cfg_p =
     '{cc_x_dim   : 2
       ,cc_y_dim  : 1
       ,ic_y_dim  : 1
@@ -127,16 +127,16 @@ package bp_common_aviary_pkg;
       ,vaddr_width: 39
       ,paddr_width: 40
       ,asid_width : 1
-      
+
       ,branch_metadata_fwd_width: 28
       ,btb_tag_width            : 10
       ,btb_idx_width            : 6
       ,bht_idx_width            : 9
       ,ras_idx_width            : 2
-      
+
       ,itlb_els             : 8
       ,dtlb_els             : 8
-      
+
 	  ,icache_lce_sets      : 64
 	  ,icache_lce_assoc     : 8
       ,lce_sets             : 64
@@ -170,7 +170,7 @@ package bp_common_aviary_pkg;
       ,io_noc_len_width     : 4
       };
 
-  localparam bp_proc_param_s bp_tri_core_cfg_p = 
+  localparam bp_proc_param_s bp_tri_core_cfg_p =
     '{cc_x_dim   : 3
       ,cc_y_dim  : 1
       ,ic_y_dim  : 1
@@ -180,16 +180,16 @@ package bp_common_aviary_pkg;
       ,vaddr_width: 39
       ,paddr_width: 40
       ,asid_width : 1
-      
+
       ,branch_metadata_fwd_width: 28
       ,btb_tag_width            : 10
       ,btb_idx_width            : 6
       ,bht_idx_width            : 9
       ,ras_idx_width            : 2
-      
+
       ,itlb_els             : 8
       ,dtlb_els             : 8
-     
+
 	  ,icache_lce_sets      : 64
 	  ,icache_lce_assoc     : 8
       ,lce_sets             : 64
@@ -488,7 +488,7 @@ package bp_common_aviary_pkg;
       ,io_noc_len_width     : 4
       };
 
-  typedef enum bit [lg_max_cfgs-1:0] 
+  typedef enum bit [lg_max_cfgs-1:0]
   {
     e_bp_sexta_core_cfg     = 9
     ,e_bp_twelve_core_cfg   = 8
@@ -502,7 +502,7 @@ package bp_common_aviary_pkg;
     ,e_bp_inv_cfg           = 0
   } bp_params_e;
 
-  /* verilator lint_off WIDTH */     
+  /* verilator lint_off WIDTH */
   parameter bp_proc_param_s [max_cfgs-1:0] all_cfgs_gp =
   {
     bp_sexta_core_cfg_p
@@ -519,4 +519,3 @@ package bp_common_aviary_pkg;
   /* verilator lint_on WIDTH */
 
 endpackage
-
