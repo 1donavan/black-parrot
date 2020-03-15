@@ -541,15 +541,27 @@ module bp_fe_icache
     end
 
   end
-
-  bsg_mux_butterfly #(
-    .width_p(dword_width_p)
-    ,.els_p(lce_assoc_p)
-  ) write_mux_butterfly (
-    .data_i(data_mem_pkt.data)
-    ,.sel_i(data_mem_pkt.way_id)
-    ,.data_o(data_mem_write_data)
-  );
+  if (`BSG_SAFE_CLOG2(lce_assoc_p) - `BSG_SAFE_CLOG2(icache_lce_assoc_p) > 0) begin
+    logic [(`BSG_SAFE_CLOG2(lce_assoc_p) - `BSG_SAFE_CLOG2(icache_lce_assoc_p)) - 1 : 0] select_padding;
+	assign select_padding = '0;
+    bsg_mux_butterfly #(
+      .width_p(dword_width_p)
+      ,.els_p(lce_assoc_p)
+    ) write_mux_butterfly (
+      .data_i(data_mem_pkt.data)
+      ,.sel_i({select_padding, data_mem_pkt.way_id})
+      ,.data_o(data_mem_write_data)
+    );
+  end else begin
+    bsg_mux_butterfly #(
+      .width_p(dword_width_p)
+      ,.els_p(lce_assoc_p)
+    ) write_mux_butterfly (
+      .data_i(data_mem_pkt.data)
+      ,.sel_i(data_mem_pkt.way_id)
+      ,.data_o(data_mem_write_data)
+    );
+  end
 
   // tag_mem
   always_comb begin
@@ -651,14 +663,30 @@ module bp_fe_icache
     end
   end
 
-  bsg_mux_butterfly #(
-    .width_p(dword_width_p)
-    ,.els_p(icache_lce_assoc_p)
-  ) read_mux_butterfly (
-    .data_i(data_mem_data_lo)
-    ,.sel_i(data_mem_pkt_way_r)
-    ,.data_o(data_mem_o)
-  );
+  if ( (cce_block_width_p - (dword_width_p*icache_lce_assoc_p)) > 0) begin
+    logic [(cce_block_width_p - (dword_width_p*icache_lce_assoc_p)) - 1:0] data_mem_padding;
+    logic [(dword_width_p*icache_lce_assoc_p) - 1 : 0] data_mem_lo;
+    assign data_mem_padding = '0;
+    assign data_mem_o = {data_mem_padding, data_mem_lo};
+    bsg_mux_butterfly #(
+      .width_p(dword_width_p)
+      ,.els_p(icache_lce_assoc_p)
+    ) read_mux_butterfly (
+      .data_i(data_mem_data_lo)
+      ,.sel_i(data_mem_pkt_way_r)
+      ,.data_o(data_mem_lo)
+    );
+
+  end else begin
+    bsg_mux_butterfly #(
+      .width_p(dword_width_p)
+      ,.els_p(icache_lce_assoc_p)
+    ) read_mux_butterfly (
+      .data_i(data_mem_data_lo)
+      ,.sel_i(data_mem_pkt_way_r)
+      ,.data_o(data_mem_o)
+    );
+  end
 
   assign data_mem_pkt_ready_o = ~tl_we;
 

@@ -23,6 +23,7 @@ module bp_core_minimal
     , localparam cfg_bus_width_lp = `bp_cfg_bus_width(vaddr_width_p, core_id_width_p, cce_id_width_p, lce_id_width_p, cce_pc_width_p, cce_instr_width_p)
 
     , localparam stat_info_width_lp = `bp_be_dcache_stat_info_width(lce_assoc_p)
+	, localparam stat_info_icache_width_lp = `bp_be_dcache_stat_info_width(icache_lce_assoc_p)
     )
    (
     input          clk_i
@@ -44,7 +45,6 @@ module bp_core_minimal
     , input [1:0] cache_req_ready_i
     , output logic [1:0][cache_req_metadata_width_lp-1:0] cache_req_metadata_o
     , output logic [1:0] cache_req_metadata_v_o
-
     , input [1:0] cache_req_complete_i
 
     // response side - Interface from LCE
@@ -88,6 +88,27 @@ module bp_core_minimal
   logic fe_cmd_v_li, fe_cmd_ready_lo;
   logic fe_cmd_v_lo, fe_cmd_yumi_li;
 
+  logic [((stat_info_icache_width_lp)- 1) : 0] stat_mem_connect;
+  logic [`BSG_SAFE_CLOG2(icache_lce_assoc_p):0] cache_req_metadata_connect;
+
+  generate
+    if (lce_assoc_p > icache_lce_assoc_p) begin
+      logic [(stat_info_width_lp-stat_info_icache_width_lp-1) : 0] stat_mem_padding;
+      assign stat_mem_padding = '0;
+      assign stat_mem_o[0] = {stat_mem_padding, stat_mem_connect};
+
+
+	  logic [((`BSG_SAFE_CLOG2(lce_assoc_p) - `BSG_SAFE_CLOG2(icache_lce_assoc_p)) - 1):0] cache_req_padding;
+	  assign cache_req_padding = '0;
+	  assign cache_req_metadata_o[0] = {cache_req_padding, cache_req_metadata_connect};
+    end else begin
+      assign stat_mem_o[0] = stat_mem_connect;
+
+	  assign cache_req_metadata_o[0] = cache_req_metadata_connect;
+    end
+  endgenerate
+
+
   bp_fe_top
    #(.bp_params_p(bp_params_p))
    fe
@@ -107,7 +128,7 @@ module bp_core_minimal
      ,.cache_req_o(cache_req_o[0])
      ,.cache_req_v_o(cache_req_v_o[0])
      ,.cache_req_ready_i(cache_req_ready_i[0])
-     ,.cache_req_metadata_o(cache_req_metadata_o[0])
+     ,.cache_req_metadata_o(cache_req_metadata_connect)
      ,.cache_req_metadata_v_o(cache_req_metadata_v_o[0])
      ,.cache_req_complete_i(cache_req_complete_i[0])
 
@@ -124,7 +145,7 @@ module bp_core_minimal
      ,.stat_mem_pkt_v_i(stat_mem_pkt_v_i[0])
      ,.stat_mem_pkt_i(stat_mem_pkt_i[0])
      ,.stat_mem_pkt_ready_o(stat_mem_pkt_ready_o[0])
-     ,.stat_mem_o(stat_mem_o[0])
+     ,.stat_mem_o(stat_mem_connect)
      );
 
   bsg_fifo_1r1w_small

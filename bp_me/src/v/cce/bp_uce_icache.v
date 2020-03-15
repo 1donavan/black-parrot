@@ -89,7 +89,7 @@ module bp_uce_icache
     (.clk_i(clk_i)
 
      ,.en_i(cache_req_metadata_v_i)
-     ,.data_i(cache_req_metadata_i)
+     ,.data_i(cache_req_metadata_i [`BSG_SAFE_CLOG2(icache_lce_assoc_p):0])
      ,.data_o(cache_req_metadata_r)
      );
 
