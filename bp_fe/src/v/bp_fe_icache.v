@@ -194,9 +194,7 @@ module bp_fe_icache
       tag_mem_w_mask_li_mux = tag_mem_w_mask_buffer_r;
       end
   end
-  // assign tag_mem_addr_li_mux = (tag_mem_pkt_v_i | tl_we)? tag_mem_addr_li : tag_mem_addr_updated;
-  // assign tag_mem_data_li_mux = (tag_mem_pkt_v_i | tl_we)? tag_mem_data_li : tag_mem_data_buffer_r;
-  // assign tag_mem_w_mask_li_mux = (tag_mem_pkt_v_i | tl_we)? tag_mem_w_mask_li : tag_mem_w_mask_buffer_r;
+
   logic tag_mem_v, tag_mem_w;
   always_comb begin
     if (counter_target_lp==0) begin
@@ -245,8 +243,10 @@ module bp_fe_icache
     always_ff @ (posedge clk_i) begin
       if (data_mem_pkt_v_i) begin
         data_mem_data_buffer_r[i] <= data_mem_write_data[i];
-        if (data_mem_pkt.index[0])
+        if (data_mem_pkt.index[0] && (counter_target_lp == 1) )
           data_mem_addr_buffer_r[i] <= {{data_mem_pkt.index[1+:index_width_lp-1], 1'b0} ^ ((index_width_lp)'(i/icache_lce_assoc_p)), data_mem_pkt.way_id ^ ((word_offset_width_lp)'(i))};
+        else if ((data_mem_pkt.index[0] || data_mem_pkt.index[1]) && (counter_target_lp == 3) )
+          data_mem_addr_buffer_r[i] <= {{data_mem_pkt.index[2+:index_width_lp-2], 2'b00} ^ ((index_width_lp)'(i/icache_lce_assoc_p)), data_mem_pkt.way_id ^ ((word_offset_width_lp)'(i))};
         else
           data_mem_addr_buffer_r[i] <= {data_mem_pkt.index ^ ((index_width_lp)'(i/icache_lce_assoc_p)), data_mem_pkt.way_id ^ ((word_offset_width_lp)'(i))};
         end
@@ -273,8 +273,6 @@ module bp_fe_icache
       data_mem_addr_li_mux = data_mem_addr_buffer_r[(icache_lce_assoc_p + slicing_offset)+:icache_lce_assoc_p];
       end
   end
-  // assign data_mem_data_li_mux = (data_mem_pkt_v_i | tl_we)? data_mem_data_li : data_mem_data_buffer_r[icache_lce_assoc_p+:icache_lce_assoc_p];
-  // assign data_mem_addr_li_mux = (data_mem_pkt_v_i | tl_we)? data_mem_addr_li : data_mem_addr_buffer_r[icache_lce_assoc_p+:icache_lce_assoc_p];
 
   // data memory: banks
   for (genvar bank = 0; bank < icache_lce_assoc_p; bank++)
@@ -526,20 +524,18 @@ module bp_fe_icache
     //   & (data_mem_pkt.opcode == e_cache_data_mem_write);
     // assign data_mem_v = (data_mem_pkt.opcode != e_cache_data_mem_uncached)
     //   & load_counter_en; //data_mem_pkt_v_
-
+  // logic [icache_lce_assoc_p-1:0][index_width_lp+word_offset_width_lp-1:0]  data_mem_addr_li_test;
   for (genvar i = 0; i < icache_lce_assoc_p; i++) begin
-    // assign data_mem_addr_li[i] = tl_we
-    //   ? {vaddr_index, vaddr_offset}
-    //   : {data_mem_pkt.index ^ ((index_width_lp)'(i/icache_lce_assoc_p)), data_mem_pkt.way_id ^ ((word_offset_width_lp)'(i))};
-    // assign data_mem_data_li[i] = data_mem_write_data[i];
-    // assign data_mem_w_mask_li[i] = {data_mask_width_lp{1'b1}};
     always_comb begin
       if (tl_we)
         data_mem_addr_li[i] = {vaddr_index, vaddr_offset};
-      else if (data_mem_pkt.index[0] && (counter_target_lp !=0) )
+      else if (data_mem_pkt.index[0] && (counter_target_lp == 1) )
         data_mem_addr_li[i] = {{data_mem_pkt.index[1+:index_width_lp-1], 1'b0} ^ ((index_width_lp)'(i/icache_lce_assoc_p)), data_mem_pkt.way_id ^ ((word_offset_width_lp)'(i))};
+      else if ((data_mem_pkt.index[0] || data_mem_pkt.index[1]) && (counter_target_lp == 3) )
+        data_mem_addr_li[i] = {{data_mem_pkt.index[2+:index_width_lp-2], 2'b00} ^ ((index_width_lp)'(i/icache_lce_assoc_p)), data_mem_pkt.way_id ^ ((word_offset_width_lp)'(i))};
       else
         data_mem_addr_li[i] = {data_mem_pkt.index ^ ((index_width_lp)'(i/icache_lce_assoc_p)), data_mem_pkt.way_id ^ ((word_offset_width_lp)'(i))};
+
       data_mem_data_li[i] = data_mem_write_data[i];
       data_mem_w_mask_li[i] = {data_mask_width_lp{1'b1}};
     end
@@ -559,12 +555,15 @@ module bp_fe_icache
   always_comb begin
     tag_mem_v_li = tl_we | tag_mem_pkt_v_i;  //tag_mem_pkt_v_i
     tag_mem_w_li = ~tl_we & tag_mem_pkt_v_i; //tag_mem_pkt_v_i
-    if (tl_we)
-      tag_mem_addr_li = vaddr_index;
-    else if (tag_mem_pkt.index[0] && (tag_mem_pkt.opcode == e_cache_tag_mem_set_tag) && (counter_target_lp !=0))
-      tag_mem_addr_li = {tag_mem_pkt.index[1+:index_width_lp-1], 1'b0};
-    else
-      tag_mem_addr_li = tag_mem_pkt.index;
+
+      if (tl_we)
+        tag_mem_addr_li = vaddr_index;
+      else if (tag_mem_pkt.index[0] && (tag_mem_pkt.opcode == e_cache_tag_mem_set_tag) && (counter_target_lp ==1)) // 4-way write
+        tag_mem_addr_li = {tag_mem_pkt.index[1+:index_width_lp-1], 1'b0};
+      else if ((tag_mem_pkt.index[0] || tag_mem_pkt.index[1]) && (tag_mem_pkt.opcode == e_cache_tag_mem_set_tag) && (counter_target_lp ==3)) // 2-way write
+        tag_mem_addr_li = {tag_mem_pkt.index[2+:index_width_lp-2], 2'b00};
+      else
+        tag_mem_addr_li = tag_mem_pkt.index;
   end
 
 
@@ -606,8 +605,7 @@ module bp_fe_icache
   // tag_mem_data_buffer
   for (genvar i = 0; i < icache_lce_assoc_p; i++) begin
     always_ff @(posedge clk_i) begin
-      if (tag_mem_pkt_v_i) begin
-        if (tag_mem_pkt.opcode == e_cache_tag_mem_set_tag)
+      if ((tag_mem_pkt_v_i) && (tag_mem_pkt.opcode == e_cache_tag_mem_set_tag)) begin
           tag_mem_data_buffer_r[i]   <= {tag_mem_pkt.state, tag_mem_pkt.tag};
           tag_mem_w_mask_buffer_r[i] <= {(`bp_coh_bits+tag_width_lp){tag_mem_way_one_hot[i]}};
         end
