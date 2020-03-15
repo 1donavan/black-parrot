@@ -31,7 +31,7 @@ package bp_common_aviary_pkg;
       ,dtlb_els             : 8
 
 	  ,icache_lce_sets      : 64
-	  ,icache_lce_assoc     : 8
+	  ,icache_lce_assoc     :8
       ,lce_sets             : 64
       ,lce_assoc            : 8
       ,cce_block_width      : 512
