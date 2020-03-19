@@ -116,21 +116,27 @@ module bp_fe_icache
 
   logic load_instr_finished, load_counter_en;
   logic [counter_width_lp-1:0] load_cycle_count;
-  assign load_counter_en = data_mem_pkt_v_i || (|load_cycle_count);
 
-
-
-  bsg_counter_overflow_en #(
-    .max_val_p(counter_target_lp)
-   ,.init_val_p(0)
-  ) load_counter
-    (.clk_i(clk_i)
-    ,.reset_i(reset_i)
-    ,.en_i(load_counter_en)
-    ,.count_o(load_cycle_count)
-    ,.overflow_o(load_instr_finished)
-    );
-
+  if (counter_target_lp == 0)
+    begin: no_counter
+        assign load_counter_en = data_mem_pkt_v_i;
+        assign load_cycle_count = 0;
+        assign load_instr_finished = 0;
+    end
+  else
+    begin: counter
+      assign load_counter_en = data_mem_pkt_v_i || (|load_cycle_count);
+      bsg_counter_overflow_en #(
+        .max_val_p(counter_target_lp)
+       ,.init_val_p(0)
+      ) load_counter
+        (.clk_i(clk_i)
+        ,.reset_i(reset_i)
+        ,.en_i(load_counter_en)
+        ,.count_o(load_cycle_count)
+        ,.overflow_o(load_instr_finished)
+        );
+    end
 
   // TL stage
   logic v_tl_r;
@@ -260,7 +266,7 @@ module bp_fe_icache
 
   always_comb begin
     slicing_offset = (load_cycle_count-1) << 1;   //TODO 1 try to make it simpler
-    if (counter_target_lp==0) begin // no additional cycle is required
+    if (counter_target_lp == 0) begin // no additional cycle is required
       data_mem_data_li_mux = data_mem_data_li;
       data_mem_addr_li_mux = data_mem_addr_li;
       end

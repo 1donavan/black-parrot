@@ -215,6 +215,7 @@ $BP_ME_DIR/src/v/cce/bp_cce_spec.v
 $BP_ME_DIR/src/v/cce/bp_io_cce.v
 # Network
 $BP_ME_DIR/src/v/cce/bp_uce.v
+$BP_ME_DIR/src/v/cce/bp_uce_icache.v
 $BP_ME_DIR/src/v/wormhole/bp_me_addr_to_cce_id.v
 $BP_ME_DIR/src/v/wormhole/bp_me_cce_id_to_cord.v
 $BP_ME_DIR/src/v/wormhole/bp_me_cce_to_mem_link_bidir.v
@@ -255,9 +256,13 @@ $BP_TOP_DIR/src/v/bsg_async_noc_link.v
 
 # EE477-CHIP
 $TOP/../ee477-chip/memories/saed90_16x64_1P_bit/saed90_16x64_1P_bit.v
-$TOP/../ee477-chip/memories/saed90_248x64_1P_bit/saed90_248x64_1P_bit.v
 $TOP/../ee477-chip/memories/saed90_64x32_2P/saed90_64x32_2P.v
 $TOP/../ee477-chip/memories/saed90_64x512_1P_BM/saed90_64x512_1P_BM.v
 $TOP/../ee477-chip/memories/saed90_8x64_1P_bit/saed90_8x64_1P_bit.v
+$TOP/../ee477-chip/memories/saed90_248x64_1P_bit/saed90_248x64_1P_bit.v
+$TOP/../ee477-chip/memories/saed90_128x128_1P_bit/saed90_128x128_1P_bit.v
+$TOP/../ee477-chip/memories/saed90_64x256_1P_bit/saed90_64x256_1P_bit.v
+$TOP/../ee477-chip/memories/saed90_8x128_1P_bit/saed90_8x128_1P_bit.v
+$TOP/../ee477-chip/memories/saed90_8x256_1P_bit/saed90_8x256_1P_bit.v
 /home/projects/vlsi/common/ee477/kits/wi19/SAED_EDK90nm/stdview/stdcells.v
 
