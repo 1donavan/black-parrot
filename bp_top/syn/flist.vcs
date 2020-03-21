@@ -179,7 +179,6 @@ $BP_FE_DIR/src/v/bp_fe_bht.v
 $BP_FE_DIR/src/v/bp_fe_btb.v
 $BP_FE_DIR/src/v/bp_fe_lce_cmd.v
 $BP_FE_DIR/src/v/bp_fe_icache.v
-$BP_FE_DIR/src/v/bp_fe_icache_v2.v
 $BP_FE_DIR/src/v/bp_fe_instr_scan.v
 $BP_FE_DIR/src/v/bp_fe_lce.v
 $BP_FE_DIR/src/v/bp_fe_lce_req.v
